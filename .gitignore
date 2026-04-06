@@ -1,0 +1,22 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Python tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Local runtime/temp files
+*.log
+*.tmp
+
+# Generated artifacts
+outputs/
+enunciado_extraido.txt
+
+# User-requested exclusions
+slides/
+docs/roteiro_oral.md
