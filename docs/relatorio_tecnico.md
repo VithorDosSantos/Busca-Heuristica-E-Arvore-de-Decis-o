@@ -31,6 +31,13 @@ Organizacao da equipe (preencher com os nomes reais):
 
 ## 3. Parte 1 - OPCAO A (Busca Heuristica)
 
+### 3.0 BestFS como classe geral
+Busca pela Melhor Escolha (BestFS) e a classe de algoritmos que seleciona o proximo no da fronteira pela melhor avaliacao de `f(n)`. Neste trabalho, foram instanciadas tres estrategias dentro desse paradigma:
+
+- Busca Gulosa: `f(n)=h(n)`
+- Busca Gulosa variante (Beam Greedy): expansao gulosa com largura de feixe `k=3`
+- A* e Weighted A*: `f(n)=g(n)+w*h(n)`
+
 ### 3.1 Descricao formal do problema
 Foi modelado um problema de roteamento em grade ponderada.
 
@@ -46,6 +53,7 @@ Foi modelado um problema de roteamento em grade ponderada.
 ### 3.2 Algoritmos implementados
 Foram implementados:
 - Greedy Best-First Search (Busca Gulosa)
+- Variante de Busca Gulosa: Greedy Beam Best-First com `k=3`
 - A*
 - Variante de A*: Weighted A* com `w=1.4`
 
@@ -60,6 +68,10 @@ Foram comparadas duas heuristicas para o mesmo problema:
 - Distancia Euclidiana
 
 Estas heuristicas foram selecionadas por serem classicas para espacos gradeados e permitirem comparacao de informatividade. Para este problema, ambas se mostraram admissiveis e consistentes nas checagens automatizadas.
+
+Metodos de construcao aplicados conforme a lauda:
+- Metodo 1: distancia Manhattan
+- Metodo 2: distancia Euclidiana
 
 ### 3.4 Admissibilidade e consistencia
 Para discutir propriedades teoricas, foi implementada verificacao automatica com custo real minimo via Dijkstra reverso.
@@ -76,6 +88,7 @@ Para cada combinacao algoritmo-heuristica, foram registrados:
 - custo final
 - numero de nos expandidos
 - tempo de execucao
+- memoria de pico durante a execucao
 - amostras de valores `g(n)`, `h(n)` e `f(n)`
 - ordem de expansao
 
@@ -87,18 +100,21 @@ Arquivos:
 ### 3.6 Resultados obtidos
 Os resultados executados estao sintetizados abaixo.
 
-| Algoritmo | Heuristica | Custo final | Nos expandidos | Tempo (ms) |
-| --- | --- | ---: | ---: | ---: |
-| Greedy Best-First Search | Manhattan | 22 | 23 | 0.072 |
-| A* | Manhattan | 22 | 67 | 0.150 |
-| Weighted A* | Manhattan | 22 | 23 | 0.051 |
-| Greedy Best-First Search | Euclidiana | 31 | 23 | 0.062 |
-| A* | Euclidiana | 22 | 73 | 0.139 |
-| Weighted A* | Euclidiana | 22 | 38 | 0.071 |
+| Algoritmo | Heuristica | Custo final | Nos expandidos | Tempo (ms) | Memoria pico (KB) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Greedy Best-First Search | Manhattan | 22 | 23 | 0.368 | 7.15 |
+| Greedy Beam Best-First (k=3) | Manhattan | 22 | 57 | 0.878 | 13.23 |
+| A* | Manhattan | 22 | 67 | 0.580 | 25.53 |
+| Weighted A* | Manhattan | 22 | 23 | 0.202 | 11.74 |
+| Greedy Best-First Search | Euclidiana | 31 | 23 | 0.196 | 14.09 |
+| Greedy Beam Best-First (k=3) | Euclidiana | 22 | 44 | 0.456 | 17.43 |
+| A* | Euclidiana | 22 | 73 | 0.584 | 26.80 |
+| Weighted A* | Euclidiana | 22 | 38 | 0.517 | 18.05 |
 
 Conclusoes principais:
 - A heuristica Manhattan foi mais eficiente neste grid, mantendo admissibilidade e consistencia e produzindo melhor orientacao para a meta.
 - Greedy com Euclidiana foi mais rapido, mas encontrou solucao pior em custo, mostrando a fragilidade de usar apenas `h(n)`.
+- A variante gulosa em feixe (k=3) com Euclidiana corrigiu o custo da busca gulosa simples (de 31 para 22), mostrando ganho de qualidade por maior largura de exploracao.
 - A* preservou o melhor custo encontrado entre os experimentos, a custa de expandir mais nos.
 - Weighted A* reduziu expansoes em relacao ao A* em alguns cenarios, oferecendo um meio-termo pratico.
 
@@ -163,6 +179,16 @@ Pontos discutidos:
 - Modelos sem poda tendem a maior profundidade e maior risco de overfitting.
 - Restricao de profundidade e poda por complexidade reduzem variancia e melhoram generalizacao.
 - A visualizacao da arvore permite interpretacao de atributos mais relevantes proximos da raiz.
+
+Interpretacao objetiva do modelo (a partir das regras extraidas):
+- Atributo mais proximo da raiz: `worst radius` com limiar em `16.80`.
+- Segundo nivel relevante: `worst concave points` com limiar em `0.14`.
+- Outros atributos recorrentes nas primeiras decisoes: `area error`, `worst texture`, `worst concavity` e `mean texture`.
+- Exemplo de regra interpretavel: quando `worst radius <= 16.80` e `worst concave points <= 0.14`, ha predominancia de classificacao benigna.
+
+Tratamento de atributos continuos e limiares:
+- O algoritmo CART do scikit-learn testa pontos de corte numericos (`feature <= threshold`) ao longo dos atributos continuos.
+- Esses limiares sao aprendidos no treino para maximizar reducao de impureza (Gini/Entropia), como nos cortes `16.80`, `0.14` e `25.62` observados nas regras exportadas.
 
 ## 5. Comparacao global e discussao integrada
 As duas partes se complementam:

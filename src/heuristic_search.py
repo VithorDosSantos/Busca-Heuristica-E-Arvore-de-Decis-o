@@ -5,6 +5,7 @@ import heapq
 import json
 import math
 import time
+import tracemalloc
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
@@ -25,6 +26,7 @@ class SearchResult:
     runtime_ms: float
     expansion_order: List[Point]
     tracked_scores: List[Dict[str, float]]
+    peak_memory_kb: float = 0.0
 
 
 class GridProblem:
@@ -140,6 +142,97 @@ def greedy_best_first(problem: GridProblem, heuristic: Heuristic, heuristic_name
         expansion_order=expansion_order,
         tracked_scores=tracked_scores,
     )
+
+
+def greedy_beam_best_first(
+    problem: GridProblem,
+    heuristic: Heuristic,
+    heuristic_name: str,
+    beam_width: int = 3,
+) -> SearchResult:
+    start_time = time.perf_counter()
+
+    frontier: List[Tuple[float, Point]] = []
+    heapq.heappush(frontier, (heuristic(problem.start, problem.goal), problem.start))
+
+    came_from: Dict[Point, Point] = {}
+    g_score: Dict[Point, float] = {problem.start: 0.0}
+    visited = set()
+    expansion_order: List[Point] = []
+    tracked_scores: List[Dict[str, float]] = []
+
+    while frontier:
+        beam: List[Point] = []
+        while frontier and len(beam) < beam_width:
+            _, current = heapq.heappop(frontier)
+            if current in visited:
+                continue
+            visited.add(current)
+            beam.append(current)
+
+        if not beam:
+            continue
+
+        candidates: List[Tuple[float, Point]] = []
+        for current in beam:
+            expansion_order.append(current)
+            h = heuristic(current, problem.goal)
+            tracked_scores.append(
+                {
+                    "x": current[0],
+                    "y": current[1],
+                    "g": g_score[current],
+                    "h": h,
+                    "f": h,
+                }
+            )
+
+            if current == problem.goal:
+                frontier = []
+                break
+
+            for nxt in problem.neighbors(current):
+                if nxt in visited:
+                    continue
+                step = problem.move_cost(nxt)
+                new_cost = g_score[current] + step
+                if nxt not in g_score or new_cost < g_score[nxt]:
+                    g_score[nxt] = new_cost
+                    came_from[nxt] = current
+                candidates.append((heuristic(nxt, problem.goal), nxt))
+
+        if not candidates:
+            continue
+
+        candidates.sort(key=lambda item: item[0])
+        for score, node in candidates[:beam_width]:
+            heapq.heappush(frontier, (score, node))
+
+    path = reconstruct_path(came_from, problem.start, problem.goal)
+    runtime_ms = (time.perf_counter() - start_time) * 1000
+
+    return SearchResult(
+        algorithm=f"Greedy Beam Best-First (k={beam_width})",
+        heuristic_name=heuristic_name,
+        path=path,
+        path_cost=g_score.get(problem.goal, math.inf),
+        expanded_nodes=len(expansion_order),
+        runtime_ms=runtime_ms,
+        expansion_order=expansion_order,
+        tracked_scores=tracked_scores,
+    )
+
+
+def run_with_memory_tracking(search_fn: Callable[..., SearchResult], *args, **kwargs) -> SearchResult:
+    tracemalloc.start()
+    try:
+        result = search_fn(*args, **kwargs)
+        _, peak_bytes = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    result.peak_memory_kb = peak_bytes / 1024.0
+    return result
 
 
 def astar(problem: GridProblem, heuristic: Heuristic, heuristic_name: str, weight: float = 1.0) -> SearchResult:
@@ -316,9 +409,10 @@ def run_heuristic_search_experiments(output_dir: Path) -> Dict[str, object]:
 
     results: List[SearchResult] = []
     for h_name, h_fn in heuristics.items():
-        results.append(greedy_best_first(problem, h_fn, h_name))
-        results.append(astar(problem, h_fn, h_name, weight=1.0))
-        results.append(astar(problem, h_fn, h_name, weight=1.4))
+        results.append(run_with_memory_tracking(greedy_best_first, problem, h_fn, h_name))
+        results.append(run_with_memory_tracking(greedy_beam_best_first, problem, h_fn, h_name, beam_width=3))
+        results.append(run_with_memory_tracking(astar, problem, h_fn, h_name, weight=1.0))
+        results.append(run_with_memory_tracking(astar, problem, h_fn, h_name, weight=1.4))
 
     checks = [analyze_heuristic(problem, h_fn, h_name) for h_name, h_fn in heuristics.items()]
 
@@ -326,7 +420,7 @@ def run_heuristic_search_experiments(output_dir: Path) -> Dict[str, object]:
     with (output_dir / "heuristic_metrics.csv").open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["algorithm", "heuristic", "path_length", "path_cost", "expanded_nodes", "runtime_ms"],
+            fieldnames=["algorithm", "heuristic", "path_length", "path_cost", "expanded_nodes", "runtime_ms", "peak_memory_kb"],
         )
         writer.writeheader()
         for r in results:
@@ -338,6 +432,7 @@ def run_heuristic_search_experiments(output_dir: Path) -> Dict[str, object]:
                     "path_cost": f"{r.path_cost:.3f}",
                     "expanded_nodes": r.expanded_nodes,
                     "runtime_ms": f"{r.runtime_ms:.3f}",
+                    "peak_memory_kb": f"{r.peak_memory_kb:.2f}",
                 }
             )
 

@@ -11,7 +11,8 @@ Este pacote atende a estrutura da lauda com:
 - `src/heuristic_search.py`: modelagem do problema, Greedy Best-First, A*, Weighted A* (variante), comparacao de heuristicas.
 - `src/decision_tree_part.py`: treinamento/validacao/teste de arvores de decisao, comparacao de configuracoes e visualizacao.
 - `src/main.py`: executa tudo e gera evidencias automaticamente.
-- `docs/relatorio_tecnico.md`: relatorio tecnico pronto para converter em PDF.
+- `docs/relatorio_tecnico.md`: relatorio tecnico em Markdown.
+- `docs/relatorio_tecnico.pdf`: relatorio tecnico em PDF para submissao.
 - `slides/apresentacao.md`: roteiro de slides.
 - `docs/roteiro_oral.md`: fala sugerida para a apresentacao ao vivo.
 - `docs/anexo_uso_ia.md`: anexo de uso de IA.
